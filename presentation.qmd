@@ -1,5 +1,5 @@
 ---
-title: "Visualising Uncertainty for Holistic Insights"
+title: "Add Uncertainty to Data Visualisations with `ggdibbler`"
 author: "Harriet Mason, Dianne Cook, Sarah Goodwin, Susan Vanderplas"
 institute: "Monash University, Australia"
 format: 
