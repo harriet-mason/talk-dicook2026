@@ -17,6 +17,17 @@ title-slide-attributes:
   smaller: true
 ---
 
+- FORMAT
+- drawings
+  - minds eye
+  - github mania
+  - teeny tiny project
+  - don't speak to me about spatial uncertainty
+1. Motivating example (walktober)
+2. What are we shooting for? (theory and code)
+3. A teeny tiny spatial example (and experiment)
+4. Mania and ggdibbler
+
 ```{r setup}
 #| include: false
 #| message: false
@@ -119,7 +130,7 @@ suburb_walk <- clean_walk |>
 
 ```
 
-# The uncertainty visualisation problem
+# Chapter 1: A Motivating Example
 
 ## Walktober {.smaller}
 
@@ -178,26 +189,7 @@ Often our data is....
 -   or Theoretical
     -   e.g. estimates based on theory, latent variables, etc
 
-## Can we store it as data? {.smaller}
 
-::::: columns
-::: {.column width="70%"}
-```{r}
-clean_walk|> 
-  as_tibble() |>
-  select(steps_dist, team, name) |>
-  head(8) |>
-  kbl()
-```
-:::
-
-::: {.column width="30%"}
--   Vectorised random variables with `distributional`
--   They are truncated normally distributed random variables
--   This is some of Mitch's software, I am not going to explain it because Mitch is going to talk about it immediately after me
-
-:::
-:::::
 
 ## How many statisticans does it take to visualise a random variable {.smaller}
 
@@ -205,7 +197,7 @@ clean_walk|>
 -   Our choice of error distribution might change the conclusion of our analysis in unexpected ways
 -   Often our solution is to just ignore the inherrent uncertainty in our data
 
-## The visualisation challenge {.smaller}
+## Ignoring the error {.smaller}
 -   Our department decides to do a visualisation challenge of the walktober data
 
 
@@ -233,10 +225,32 @@ p1 + p2
 
 ## I dont want to ignore it
 -   But I did all that reading about pedometers, so I would like to incorporate that uncertainty
--   But **how** do we incorporate it? What does it mean to **see** uncertainty?
+-   The question is, **how**?  What does it mean to **see** uncertainty?
 
-## Uncertainty visualisation for signal supression
+# Chapter 2: What are we trying to do?
 
+## Theory and code
+- There are really two elements of this problem
+1. Theoretically, what does it mean to visualise uncertainty
+  - Existing discussions are kind of vague on our goals
+2. Practically, how should the system be designed
+  - Existing implementations are specific to one type of plot and use bespoke syntax
+
+## Theory - Visual statistical properties
+
+::::: columns
+::: {.column width="40%"}
+-   Statistical properties are what differentiate us from the animals
+-   Sweet succulent statistical properties
+:::
+
+::: {.column width="60%"}
+![](images/fooldog.jpeg){fig-align="center"}
+:::
+:::::
+
+## Theory - Transparency
+- Often uncertainty 
 -   Statistical validity should translates to perceptual ease
     -   The higher the variance on an estimate, the harder that estimate is to extract from the plot
 
@@ -244,7 +258,62 @@ p1 + p2
 
 
 
-# Working out what works
+## Theory - Visual Continuous Mapping Theorem
+
+![](images/visualcmt.jpeg){fig-align="center"}
+
+## Theory - Visual Continuous Mapping Theorem
+
+![](images/visualconvergence.jpeg){fig-align="center"}
+
+## Theory - Broad goals of the system
+-   Statistical validity should translates to perceptual ease
+    -   The higher the variance on an estimate, the harder that estimate is to extract from the plot
+
+![](images/signoise.jpeg){fig-align="center"}
+
+## Practical - Code
+- Continuous mapping theorem implies the function is the same
+- Therefore: `ggplot2` code = `ggdibbler` code
+- Only difference is the random variable input
+
+## Speaking of random variable inputs {.smaller}
+
+::::: columns
+::: {.column width="70%"}
+```{r}
+clean_walk|> 
+  as_tibble() |>
+  select(steps_dist, team, name) |>
+  head(8) 
+```
+:::
+
+::: {.column width="30%"}
+-   Vectorised random variables with `distributional`
+-   Our walktober example can be represented by truncated normally distributed random variables
+-   This is not a talk on `distributional` (but you should look at the software, it is neat)
+
+:::
+:::::
+
+
+## Uncertain data sets
+Every data set used in the `ggplot2` documentation has a `distributional` version in `ggdibbler`
+
+- `diamonds` = `uncertain_diamonds`
+- `mpg` = `uncertain_mpg`
+- `mtcars` = `uncertain_mtcars`
+- `faithful` = `uncertain_faithful`
+- `economics`= `uncertain_economics`
+
+
+
+
+
+
+
+# Chapter 3: A Teeny Tiny Spatial Example
 
 ## Spot the difference  {.smaller}
 -   Maps of temperature in Iowa counties
@@ -383,50 +452,7 @@ glmer_models |>
 
 ```
 
-# Uncertainty visualisation in `ggdibbler`
-
-## Universal application in `ggdibbler`
-
--   `ggdibbler` applies this concept to every plot and every aesthetic
-
-![](images/ggdibbler.jpeg){fig-align="center"}
-
-## Universal application in `ggdibbler` {.smaller}
-![](images/nameggdibbler.jpeg){fig-align="center"}
-
-
-
-## `ggdibbler` also ensures your plots have nice statistical properties
-
-::::: columns
-::: {.column width="40%"}
--   Statistical properties are what differentiate us from the animals
-:::
-
-::: {.column width="60%"}
-![](images/fooldog.jpeg){fig-align="center"}
-:::
-:::::
-
-## The relationship between ggplot2 and ggdibbler
-- Visual Continuous mapping theorem
-
-![](images/visualcmt.jpeg){fig-align="center"}
-
-## The relationship between ggplot2 and ggdibbler
-
-![](images/visualconvergence.jpeg){fig-align="center"}
-
-## Uncertain data sets
-Every data set used in the `ggplot2` documentation has a `distributional` version in `ggdibbler`
-
-- `diamonds` = `uncertain_diamonds`
-- `mpg` = `uncertain_mpg`
-- `mtcars` = `uncertain_mtcars`
-- `faithful` = `uncertain_faithful`
-- `economics`= `uncertain_economics`
-
-
+# Chapter 4: A State of Mainia and `ggdibbler`
 
 ## ggdibbler and ggplot2
 
@@ -648,7 +674,7 @@ toy_temp_dist |>
 :::::
 
 
-## `ggdibbler` uses a unique nested position system!
+## Nested positioning
 - Allows you to manage the overplotting from the sample
 
 ```{r}
@@ -816,6 +842,17 @@ glmer_models |>
 
 ```
 
+## Combine all this together to get...
+
+![](images/ggdibbler.jpeg){fig-align="center"}
+
+## Universal application in `ggdibbler` {.smaller}
+
+![](images/nameggdibbler.jpeg){fig-align="center"}
+
+
+
+
 ## Back to walktober example
 
 ```{r}
@@ -839,8 +876,7 @@ p4 <- ggplot(clean_walk, aes(x=team, y = steps_dist, fill = team_colour)) +
 p3 + p4
 ```
 
-## Have a go yourself
-![](images/website.png){fig-align="center"}
+# Chapter 5: Conlcusions
 
 ## Future Plans
 
@@ -854,6 +890,7 @@ p3 + p4
 
 ## Acknowledgements
 -   My Supervisors: Di Cook, Susan Vanderplas, and Sarah Goodwin
+-   Experiment Co-authors: Rachel Rogers and Alison Kleffner
 -   AEMO Zema Energy Schoalarship
 -   Australian RTP Stipend
 -   Numbat Hackathon (for the walktober data)
