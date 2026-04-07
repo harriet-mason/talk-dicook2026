@@ -17,7 +17,7 @@ title-slide-attributes:
   smaller: true
 ---
 
-```{r}
+```{r setup}
 #| include: false
 #| message: false
 #| warning: false
@@ -30,7 +30,22 @@ library(ggthemes)
 library(distributional)
 library(patchwork)
 library(kableExtra)
+library(ggthemes)
 # read in other data
+
+theme_set( theme_gdocs() + 
+             theme(aspect.ratio = 1, 
+                   axis.text.x = element_text(angle = 35, 
+                                              vjust = 1.05, 
+                                              hjust=1),
+                   palette.colour.continuous = gdocs_pal(),
+                   palette.colour.discrete = gdocs_pal(),
+             )
+)
+```
+
+
+```{r walkdata}
 #filtered_walk <- walkathon[which((walkathon$name %in% extra_walk$name)),]
 filtered_walk <- walktober
 
@@ -163,7 +178,26 @@ Often our data is....
 -   or Theoretical
     -   e.g. estimates based on theory, latent variables, etc
 
+## Can we store it as data? {.smaller}
 
+::::: columns
+::: {.column width="70%"}
+```{r}
+clean_walk|> 
+  as_tibble() |>
+  select(steps_dist, team, name) |>
+  head(8) |>
+  kbl()
+```
+:::
+
+::: {.column width="30%"}
+-   Vectorised random variables with `distributional`
+-   They are truncated normally distributed random variables
+-   This is some of Mitch's software, I am not going to explain it because Mitch is going to talk about it immediately after me
+
+:::
+:::::
 
 ## How many statisticans does it take to visualise a random variable {.smaller}
 
@@ -201,14 +235,22 @@ p1 + p2
 -   But I did all that reading about pedometers, so I would like to incorporate that uncertainty
 -   But **how** do we incorporate it? What does it mean to **see** uncertainty?
 
+## Uncertainty visualisation for signal supression
+
+-   Statistical validity should translates to perceptual ease
+    -   The higher the variance on an estimate, the harder that estimate is to extract from the plot
+
+![](images/signoise.jpeg){fig-align="center"}
+
+
+
+# Working out what works
 
 ## Spot the difference  {.smaller}
 -   Maps of temperature in Iowa counties
 -   I chose two error distributions, can you spot the difference?
 
 ![](images/choropleth.jpeg){fig-align="center"}
-
-# Existing approaches
 
 ## Exceedance probability map
 
@@ -253,12 +295,7 @@ p1 + p2
 -   Usually do not want variables to interfere with each other
     -   In uncertainty visualisation, the opposite is true
 
-## Uncertainty visualisation for signal supression
 
--   Statistical validity translates to perceptual ease
-    -   The higher the variance on an estimate, the harder that estimate is to extract from the plot
-
-![](images/signoise.jpeg){fig-align="center"}
 
 ## Solution: blend the colours together! {.smaller}
 
@@ -292,6 +329,60 @@ p1 + p2
 :::
 :::::
 
+## But does it work?
+- We did a study on to check if the visiblity of the signal aligns with standard hypothesis tests
+
+::: {#fig-plotexample layout-ncol=2}
+
+
+![Choropleth](images/choro_5x5.png){fig-align="center"}
+
+
+![Pixel](images/pix_5x5.png){fig-align="center"}
+(Thank you Nick Tierney for the `ishihara` package)
+:::
+
+## Pixel maps and hypothesis tests
+- Shockingly well
+
+```{r}
+# load simulated models
+load("data/glmer_models.rda")
+load("data/theoretical_models.rda")
+# load("data/average_fit.rda")
+
+name_distance <- function(string) {
+  paste0("Distance: \n", string)
+}
+
+LINES <- c("T-test" = "longdash", "Moran's I" = "dotdash")
+glmer_models |>
+  filter(!D==0,
+         plot_type %in% c("Choropleth", "Pixel")) |>
+  mutate(line_id = interaction(plot_type, id)) |>
+  ggplot(aes(x=V,  group = line_id)) +
+  geom_line(aes(y = power_random, colour = plot_type), 
+            linewidth=0.3, alpha=0.3) +
+  geom_line(data = theoretical_models |>
+              filter(!D==0, plot_type %in% c("Choropleth", "Pixel")) |>
+              mutate(line_id = interaction(test, plot_type, correct_number)),
+            aes(y=power_random, linetype = test),
+            linewidth=0.3, colour = "black") +
+  theme(legend.position="top", 
+        legend.direction ="horizontal",
+        text=element_text(size=10), 
+        strip.text.x=element_text(size=8),
+        strip.text.y=element_text(size=8),
+        legend.text = element_text(size=8)) +
+  guides(colour = "none") + 
+  facet_grid(rows = vars(plot_type), cols = vars(D),
+             labeller = labeller(D = name_distance)) +
+  labs(x = "Standard Deviation", y = "Power",
+       linetype = "Classical Test") +
+  scale_linetype_manual(values = LINES) 
+
+```
+
 # Uncertainty visualisation in `ggdibbler`
 
 ## Universal application in `ggdibbler`
@@ -303,37 +394,62 @@ p1 + p2
 ## Universal application in `ggdibbler` {.smaller}
 ![](images/nameggdibbler.jpeg){fig-align="center"}
 
-## Vectorise random variables with `distributional` {.smaller}
+
+
+## `ggdibbler` also ensures your plots have nice statistical properties
 
 ::::: columns
-::: {.column width="70%"}
-```{r}
-clean_walk|> 
-  as_tibble() |>
-  select(steps_dist, team, name) |>
-  head(8) |>
-  kbl()
-```
+::: {.column width="40%"}
+-   Statistical properties are what differentiate us from the animals
 :::
 
-::: {.column width="30%"}
--   Can we store these random variables in a tibble? Yes
--   These columns are made using `distributional ` 
--   They are truncated normally distributed random variables
--   This is some of Mitch's software, I am not going to explain it because Mitch is going to talk about it immediately after me
-
+::: {.column width="60%"}
+![](images/fooldog.jpeg){fig-align="center"}
 :::
 :::::
 
-## The `distributional` data sets
-Every data set used in the `ggplot2` documentation has a distributional version in `ggdibbler`
+## The relationship between ggplot2 and ggdibbler
+- Visual Continuous mapping theorem
+
+![](images/visualcmt.jpeg){fig-align="center"}
+
+## The relationship between ggplot2 and ggdibbler
+
+![](images/visualconvergence.jpeg){fig-align="center"}
+
+## Uncertain data sets
+Every data set used in the `ggplot2` documentation has a `distributional` version in `ggdibbler`
 
 - `diamonds` = `uncertain_diamonds`
 - `mpg` = `uncertain_mpg`
 - `mtcars` = `uncertain_mtcars`
 - `faithful` = `uncertain_faithful`
 - `economics`= `uncertain_economics`
-- `walktober`!!!
+
+
+
+## ggdibbler and ggplot2
+
+- Every `geom` has a `geom_sample` counterpart...
+
+::::: columns
+::: {.column width="50%"}
+
+```{=html}
+<iframe width="780" height="500" src="https://ggplot2.tidyverse.org/reference/index.html#geoms" title="ggplot2"></iframe>
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{=html}
+<iframe width="780" height="500" src="https://harriet-mason.github.io/ggdibbler/reference/index.html#geoms" title="ggdibbler"></iframe>
+```
+
+:::
+:::::
+
 
 
 ## Contour plots
@@ -531,28 +647,87 @@ toy_temp_dist |>
 :::
 :::::
 
-## `ggdibbler` also ensures your plots have nice statistical properties
 
-::::: columns
-::: {.column width="40%"}
--   Statistical properties are what differentiate us from the animals
-:::
+## `ggdibbler` uses a unique nested position system!
+- Allows you to manage the overplotting from the sample
 
-::: {.column width="60%"}
-![](images/fooldog.jpeg){fig-align="center"}
-:::
-:::::
+```{r}
+# ggplot IDENTITY
+p1 <- ggplot(mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), 
+                  position = "identity", alpha=0.7)+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1) +
+  ggtitle("ggplot2: identity")
 
-## Visual Continuous mapping theorem
+# ggdibbler identity
+p2 <- ggplot(uncertain_mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), alpha=0.1,
+                  position = "identity_identity")+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("identity_identity")
 
-![](images/visualcmt.jpeg){fig-align="center"}
+p3 <- ggplot(uncertain_mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), alpha=0.7,
+                  position = "identity_dodge")+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("identity_dodge")
 
-## Example in geom_tile 
 
-![](images/visualconvergence.jpeg){fig-align="center"}
+# ggplot dodge
+p5 <- ggplot(mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), 
+                  position = position_dodge(preserve="single"))+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("ggplot: dodge")
 
-## `ggdibbler` guarentees these properties
-- Not the default in `ggplot2`, you need nested positions
+p6 <- ggplot(uncertain_mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), alpha=0.1,
+                  position = "dodge_identity")+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("dodge_identity")
+
+p7 <- ggplot(uncertain_mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), 
+                  position = "dodge_dodge")+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("dodge_dodge")
+
+
+# ggplot stack
+p9 <- ggplot(mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), 
+                  position = "stack")+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("ggplot2: stack")
+
+
+p10 <- ggplot(uncertain_mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), alpha=0.1,
+                  position = "stack_identity")+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("stack_identity")
+
+p11 <- ggplot(uncertain_mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv),
+                  position = "stack_dodge")+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("stack_dodge")
+
+
+(p1 | p2 | p3 ) / (p5 | p6 | p7) / (p9 | p10 | p11)
+
+```
+
+## Required to maintain limiting properties
 
 ```{r dodgebarchart, fig.width=12, fig.height=4}
 
@@ -597,6 +772,47 @@ p3 <- ggplot(random_catdog, aes(DogOwner)) +
   ggtitle("ggdibbler: dodge")
 
 p1 | p3 | p2
+
+```
+
+## Can I pick any position adjstment?
+- Also checked different position adjustments in experiment
+
+::: {#fig-plotexample layout-ncol=2}
+
+![Pixel](images/pix_5x5.png){fig-align="center"}
+
+![Transparency](images/trans_5x5.png){fig-align="center"}
+
+(Thank you Nick Tierney for the `ishihara` package)
+:::
+
+## All `ggdibbler` plots convey the same statistical information!
+```{r}
+glmer_models |>
+  filter(!D==0,
+         plot_type %in% c("Choropleth", "Pixel", "Transparency")) |>
+  mutate(line_id = interaction(plot_type, id)) |>
+  ggplot(aes(x=V,  group = line_id)) +
+  geom_line(aes(y = power_random, colour = plot_type), 
+            linewidth=0.3, alpha=0.3) +
+  geom_line(data = theoretical_models |>
+              filter(!D==0, plot_type %in% c("Choropleth", "Pixel", "Transparency")) |>
+              mutate(line_id = interaction(test, plot_type, correct_number)),
+            aes(y=power_random, linetype = test),
+            linewidth=0.3, colour = "black") +
+  theme(legend.position="top", 
+        legend.direction ="horizontal",
+        text=element_text(size=10), 
+        strip.text.x=element_text(size=8),
+        strip.text.y=element_text(size=8),
+        legend.text = element_text(size=8)) +
+  guides(colour = "none") + 
+  facet_grid(rows = vars(plot_type), cols = vars(D),
+             labeller = labeller(D = name_distance)) +
+  labs(x = "Standard Deviation", y = "Power",
+       linetype = "Classical Test") +
+  scale_linetype_manual(values = LINES) 
 
 ```
 
