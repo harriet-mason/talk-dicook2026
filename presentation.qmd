@@ -104,6 +104,8 @@ suburb_walk <- clean_walk |>
 
 ```
 
+# The uncertainty visualisation problem
+
 ## Walktober {.smaller}
 
 -   Our department had a walkathon in october where we all competed to see how many steps we could walk each day ![](images/walktober.jpeg){fig-align="center"}
@@ -161,6 +163,8 @@ Often our data is....
 -   or Theoretical
     -   e.g. estimates based on theory, latent variables, etc
 
+
+
 ## How many statisticans does it take to visualise a random variable {.smaller}
 
 -   Even though we usually work with random variables, are unable to visualise them effectively
@@ -195,6 +199,8 @@ p1 + p2
 
 ## I dont want to ignore it
 -   But I did all that reading about pedometers, so I would like to incorporate that uncertainty
+-   But **how** do we incorporate it? What does it mean to **see** uncertainty?
+
 
 ## Spot the difference  {.smaller}
 -   Maps of temperature in Iowa counties
@@ -202,7 +208,7 @@ p1 + p2
 
 ![](images/choropleth.jpeg){fig-align="center"}
 
-# How do we include the uncertainty?
+# Existing approaches
 
 ## Exceedance probability map
 
@@ -269,27 +275,6 @@ p1 + p2
 -   We need a more holistic apporach that doesn't allow us to pick and choose when and how we include uncertainty
 -   Uncertainty visualisation doesn't have units of data, it has units of "random variables" so we should directly input random variables
 
-## Vectorise random variables with `distributional` {.smaller}
-
-::::: columns
-::: {.column width="70%"}
-```{r}
-clean_walk|> 
-  as_tibble() |>
-  select(steps_dist, team, name) |>
-  head(8) |>
-  kbl()
-```
-:::
-
-::: {.column width="30%"}
--   It turns out you can.
--   These columns are made using `distributional ` 
--   They are truncated normally distributed random variables
--   This is some of Mitch's software, I am not going to explain it because Mitch is going to talk about it immediately after me
-
-:::
-:::::
 
 ## Solution: simulate a sample {.smaller}
 
@@ -307,7 +292,7 @@ clean_walk|>
 :::
 :::::
 
-# But lets take this one step further...
+# Uncertainty visualisation in `ggdibbler`
 
 ## Universal application in `ggdibbler`
 
@@ -317,6 +302,39 @@ clean_walk|>
 
 ## Universal application in `ggdibbler` {.smaller}
 ![](images/nameggdibbler.jpeg){fig-align="center"}
+
+## Vectorise random variables with `distributional` {.smaller}
+
+::::: columns
+::: {.column width="70%"}
+```{r}
+clean_walk|> 
+  as_tibble() |>
+  select(steps_dist, team, name) |>
+  head(8) |>
+  kbl()
+```
+:::
+
+::: {.column width="30%"}
+-   Can we store these random variables in a tibble? Yes
+-   These columns are made using `distributional ` 
+-   They are truncated normally distributed random variables
+-   This is some of Mitch's software, I am not going to explain it because Mitch is going to talk about it immediately after me
+
+:::
+:::::
+
+## The `distributional` data sets
+Every data set used in the `ggplot2` documentation has a distributional version in `ggdibbler`
+
+- `diamonds` = `uncertain_diamonds`
+- `mpg` = `uncertain_mpg`
+- `mtcars` = `uncertain_mtcars`
+- `faithful` = `uncertain_faithful`
+- `economics`= `uncertain_economics`
+- `walktober`!!!
+
 
 ## Contour plots
 
@@ -351,60 +369,156 @@ ggplot(uncertain_faithfuld, aes(waiting, eruptions, z = density2))+
 :::
 :::::
 
-## Text plot
+## Text plots {.smaller}
 
-```{r textplot, fig.width=16, fig.height=4}
+```{r textdata}
+#| echo: false
 set.seed(10)
 textdata <- expand_grid(x = c(1,2,3,4,5), y= c(1,2,3,4,5)) |>
   mutate(
-    z0 = sample(c(TRUE, FALSE), 25, replace=TRUE)
-    ) |>
-  mutate(
-    z1 = dist_bernoulli(0.1 + 0.8*z0),
-    z2 = dist_bernoulli(0.3 + 0.4*z0),
-    z3 = dist_bernoulli(0.5),
-  )
-
-textplot <- function(var, alpha){
-  ggplot(textdata, aes(x=x, y=y, lab=get(var))) +
-  # ggplot(textdata, aes(x=x, y=y, lab=get(var))) +
-           geom_text_sample(aes(label = after_stat(lab)), 
-                            size=4, alpha=alpha, times=30) +
-    scale_colour_viridis_d(option="rocket") + 
-           #scale_colour_manual(values = c("steelblue", "firebrick")) +
-           theme_few() +
-           theme(aspect.ratio = 1, legend.position = "none") 
-}
-p0 <- textplot("z0", 1) +
-  ggtitle("Point Estimate")
-p1 <- textplot("z1", 0.05) +
-  ggtitle("Binomial with p = 0.9 or 0.1")
-p2 <- textplot("z2", 0.05) +
-  ggtitle("Binomial with p = 0.3 or 0.7")
-p3 <- textplot("z3", 0.05) +
-  ggtitle("Binomial with p = 0.5")
-
-(p0 | p1 | p2 | p3)
+    text_const = sample(c(TRUE, FALSE), 25, replace=TRUE),
+    text_dist = dist_bernoulli(0.3 + 0.4*text_const),
+    ) 
 ```
 
-## Spatial pixel map
+::::: columns
+::: {.column width="50%"}
 
-```{r, fig.width=8, fig.height=4}
+```{r}
+#| echo: true
+#| fig-width: 4
+ggplot(textdata, aes(x=x, y=y)) +
+  geom_text(aes(label = text_const), size=4) +
+  theme_few() +
+  ggtitle("ggplot2") +
+  theme(aspect.ratio = 1, legend.position = "none") 
+
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| echo: true
+#| fig-width: 4
+
+ggplot(textdata, aes(x=x, y=y, lab = text_dist)) +
+  geom_text_sample(aes(label = after_stat(lab)), 
+                   size=4, alpha=1/30, times=30) +
+  ggtitle("ggdibbler") +
+  theme_few() +
+  theme(aspect.ratio = 1, legend.position = "none") 
+
+```
+
+:::
+:::::
+
+
+## Raster Plots  {.smaller}
+
+::::: columns
+::: {.column width="50%"}
+
+```{r}
+#| echo: true
+#| fig-width: 4
+ggplot(faithfuld, aes(waiting, eruptions)) + 
+  geom_raster(aes(fill = density)) +
+  ggtitle("ggplot2")+
+  theme(legend.position = "bottom")
+
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| echo: true
+#| fig-width: 4
+
+ggplot(uncertain_faithfuld, aes(waiting, eruptions)) + 
+  geom_raster_sample(aes(fill = density2)) +
+  ggtitle("ggdibbler more error")+
+  theme(legend.position = "bottom")
+
+```
+
+:::
+:::::
+
+
+## Bar charts  {.smaller}
+
+::::: columns
+::: {.column width="50%"}
+
+```{r}
+#| echo: true
+#| fig-width: 4
+ggplot(mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), 
+                  position = "stack")+
+  theme(legend.position="none")+
+  ggtitle("stack")
+
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| echo: true
+#| fig-width: 4
+
+ggplot(uncertain_mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv),
+                  position = "stack_dodge")+
+  theme(legend.position="none")+
+  ggtitle("stack_dodge")
+
+```
+
+:::
+:::::
+
+## Spatial Plots  {.smaller}
+
+```{r spatialdata}
+#| echo: false
 # Make average summary of data
 toy_temp_mean <- toy_temp |> 
   dplyr::group_by(county_name) |>
   summarise(temp_mean = mean(recorded_temp))
+```
 
-# plot it
-p1 <- ggplot(toy_temp_mean) +
+::::: columns
+::: {.column width="50%"}
+
+```{r}
+#| echo: true
+#| fig-width: 4
+ggplot(toy_temp_mean) +
   geom_sf(aes(geometry=county_geometry, fill=temp_mean), linewidth=0.7) +
   scale_fill_distiller(palette = "OrRd") +
   labs(fill="temp")+
   ggtitle("ggplot2")+
   theme(legend.position = "bottom")
 
-# sample map
-p2 <- toy_temp_dist |> 
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| echo: true
+#| fig-width: 4
+
+toy_temp_dist |> 
   ggplot() + 
   geom_sf_sample(aes(geometry = county_geometry, fill=temp_dist), linewidth=0, times=50) + 
   geom_sf(aes(geometry = county_geometry), fill=NA, linewidth=0.7) +
@@ -412,58 +526,10 @@ p2 <- toy_temp_dist |>
   labs(fill="temp")+
   ggtitle("ggdibbler")+
   theme(legend.position = "bottom")
-
-p1+p2
 ```
 
-## Bar charts
-
-```{r, fig.width=12, fig.height=4}
-p1 <- ggplot(mpg, aes(class)) + 
-  geom_bar_sample(aes(fill = drv), 
-                  position = "stack")+
-  theme(legend.position="none")+
-  ggtitle("stack")
-
-
-p2 <- ggplot(uncertain_mpg, aes(class)) + 
-  geom_bar_sample(aes(fill = drv), alpha=0.1,
-                  position = "stack_identity")+
-  theme(legend.position="none")+
-  ggtitle("stack_identity")
-
-p3 <- ggplot(uncertain_mpg, aes(class)) + 
-  geom_bar_sample(aes(fill = drv),
-                  position = "stack_dodge")+
-  theme(legend.position="none")+
-  ggtitle("stack_dodge")
-
-p1 | p2 | p3
-```
-
-## Raster plots
-
-```{r, fig.width=8, fig.height=4}
-
-p1 <- ggplot(faithfuld, aes(waiting, eruptions)) + 
-  geom_raster(aes(fill = density)) +
-  ggtitle("ggplot2")+
-  theme(legend.position = "bottom")
-
-p2 <- ggplot(uncertain_faithfuld, aes(waiting, eruptions)) + 
-  geom_raster_sample(aes(fill = density)) +
-  ggtitle("ggdibbler some error")+
-  theme(legend.position = "bottom")
-
-p3 <- ggplot(uncertain_faithfuld, aes(waiting, eruptions)) + 
-  geom_raster_sample(aes(fill = density2)) +
-  ggtitle("ggdibbler more error")+
-  theme(legend.position = "bottom")
-
-p1  + p2 + p3
-```
-
-
+:::
+:::::
 
 ## `ggdibbler` also ensures your plots have nice statistical properties
 
