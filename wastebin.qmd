@@ -169,3 +169,31 @@ glmer_models |>
 -   We are going to try and quantify the uncertainty that we can quantify
     -   "Anything worth doing is worth doing poorly" - G. K. Chesterton
 
+
+## A Teeny Tiny Spatial Example
+![](images/alluncertaintyvis.jpeg){fig-align="center"}
+
+## Visual Continuous Mapping Theorem
+
+![](images/visualcmt.jpeg){fig-align="center"}
+
+## Syntax of Continuous mapping theorem
+
+::::: columns
+::: {.column width="40%"}
+-   Statistical properties are what differentiate us from the animals
+:::
+
+::: {.column width="60%"}
+![](images/fooldog.jpeg){fig-align="center"}
+:::
+:::::
+
+## Syntax of Continuous mapping theorem
+
+![](images/visualconvergence.jpeg){fig-align="center"}
+
+## Free yourself 
+
+-   Uncertainty visualisation doesn't have units of data, it has units of "random variables" so we should directly input random variables
+-   Why aren't we just visualising these random variables??

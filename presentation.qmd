@@ -162,8 +162,8 @@ Before the competition started, I searched up the most accurate and cost effecti
 
 ![](images/surveyanswers.jpeg){fig-align="center"}
 
-## Visualisaion challenge {.smaller}
--   Our department decides to do a visualisation challenge of the walktober data
+## Visualising the data {.smaller}
+Our department decides to do a visualisation challenge of the walktober data
 - Give up and just use raw data?
 
 ```{r}
@@ -193,7 +193,7 @@ p1 + p2
 
 Often our data is....
 
--   Unavailable,
+-   Unavailable
     -   e.g. anonymised data, measurement error, etc.
 -   Non-deterministic
     -   e.g. bounded data, estimated values, etc.
@@ -201,10 +201,7 @@ Often our data is....
     -   e.g. estimates based on theory, latent variables, etc
 
 
-# Part 2: Simplifying the Problem
-
-## A Teeny Tiny Spatial Example
-![](images/alluncertaintyvis.jpeg){fig-align="center"}
+# Part 2: A Teeny Tiny Spatial Example
 
 ```{r maps}
 # get data
@@ -461,23 +458,29 @@ pixel2 <- my_map_data |>
   ggtitle("High Variance") 
 ```
 
-## What does transparency look like?
--   Statistical validity should translates to perceptual ease
-    -   The higher the variance on an estimate, the harder that estimate is to extract from the plot
-
-![](images/signoise.jpeg){fig-align="center"}
-
-## Spot the difference  {.smaller}
--   Choropleth map of temperatures in Iowa counties
--   Wave should not be visible in high uncertainty
+## Choropleth map  {.smaller}
+Temperatures in Iowa counties
 
 ```{r}
 choro1 + choro2  
 ```
 
 
+## What does transparency look like?
+-   Statistical validity should translates to perceptual ease
+    -   The higher the variance on an estimate, the harder that estimate is to extract from the plot
 
-## Testing the plots
+![](images/signoise.jpeg){fig-align="center"}
+
+## Choropleth map  {.smaller}
+The wave should be invisible in high variance case
+
+```{r}
+choro1 + choro2  
+```
+
+
+## Test this property?
 - Made a fake colour blind test using Nick Tierney's `ishihara` package
 ![](images/ishihara.png){fig-align="center"}
 
@@ -541,9 +544,9 @@ glmer_models |>
 
 
 
-## Solution: add an axis for uncertainty {.smaller}
+## Solution: add an axis for uncertainty
+Bivariate Map 
 
-- Bivariate Map
 ```{r}
 bivar1 + bivar2 
 ```
@@ -604,8 +607,9 @@ glmer_models |>
 
 
 
-## Solution: blend the colours together! {.smaller}
-Value Suppressing Uncertainty Palette (VSUP) (Correll, 2018)
+## Solution: blend the colours together!
+AKA: Value Suppressing Uncertainty Palette (VSUP) (Correll, 2018)
+Solution: blend the colours together!
 ```{r}
 vsup1 + vsup2  
 ```
@@ -656,14 +660,10 @@ glmer_models |>
 :::
 :::::
 
-## Free yourself 
 
--   Uncertainty visualisation doesn't have units of data, it has units of "random variables" so we should directly input random variables
--   Why aren't we just visualising these random variables??
-
-
-## Solution: simulate a sample {.smaller}
+## Solution: simulate a sample
 Pixel Map (Lucchesi, 2021)
+
 ```{r}
 pixel1 + pixel2  
 ```
@@ -714,7 +714,7 @@ glmer_models |>
 :::
 :::::
 
-# Part 3: The coding problem
+# Part 3: The Coding Problem
 
 ## Code from my minds eye
 
@@ -810,25 +810,7 @@ clean_walk|>
 ## The scale problem
 ![](images/scalesuffering.jpg){fig-align="center"}
 
-## Visual Continuous Mapping Theorem
 
-![](images/visualcmt.jpeg){fig-align="center"}
-
-## Syntax of Continuous mapping theorem
-
-::::: columns
-::: {.column width="40%"}
--   Statistical properties are what differentiate us from the animals
-:::
-
-::: {.column width="60%"}
-![](images/fooldog.jpeg){fig-align="center"}
-:::
-:::::
-
-## Syntax of Continuous mapping theorem
-
-![](images/visualconvergence.jpeg){fig-align="center"}
 
 ## Asking for help 
 ![](images/hadleyhelp2.jpeg){fig-align="center"}
