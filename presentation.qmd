@@ -1,6 +1,6 @@
 ---
 title: "Add Uncertainty to Data Visualisations with `ggdibbler`"
-author: "Harriet Mason, Dianne Cook, Sarah Goodwin, Susan Vanderplas"
+author: "Harriet Mason"
 institute: "Monash University, Australia"
 format: 
   revealjs: 
@@ -608,8 +608,8 @@ glmer_models |>
 
 
 ## Solution: blend the colours together!
-AKA: Value Suppressing Uncertainty Palette (VSUP) (Correll, 2018)
-Solution: blend the colours together!
+Value Suppressing Uncertainty Palette (VSUP) (Correll, 2018)
+
 ```{r}
 vsup1 + vsup2  
 ```
@@ -737,7 +737,7 @@ ggplot(map_data) +
 
 
 ## `Vizumap` code
-- Works? Yes. Code from my minds eye? No.
+Works? Yes. Code from my minds eye? No.
 ```{r}
 #| eval: false
 #| echo: true
@@ -777,25 +777,25 @@ view(pixel_map)
 
 
 
-## Input data?
+## Input data? {.smaller}
 
 ::::: columns
 
-::: {.column width="70%"}
--   Vectorised random variables with `distributional`
-  -   Thank you Mitch, Matt, Alex,  and Rob
--   Our walktober example as trunacted normal distributions
--   This is not a talk on `distributional` 
-
-:::
-
-::: {.column width="30%"}
+::: {.column width="40%"}
 ```{r}
 clean_walk|> 
   as_tibble() |>
   select(steps_dist, team, name) |>
   head(8) 
 ```
+:::
+
+::: {.column width="60%"}
+-   Vectorised random variables with `distributional`
+  -   Thank you Mitch, Matt, Alex,  and Rob
+-   Our walktober example as trunacted normal distributions
+-   This is not a talk on `distributional` 
+
 :::
 
 :::::
@@ -1001,9 +1001,10 @@ ggplot(textdata, aes(x=x, y=y, lab = text_dist)) +
 
 
 
-## Uhh hold on, positions are an isuse
+## Uhh hold on, positions are an isuse {.smaller}
 
 ```{r dodgebarchart}
+#| fig-height: 4
 #| fig-width: 12
 set.seed(10)
 catdog <- tibble(
@@ -1056,7 +1057,7 @@ p1 | p3
 p1 | p2
 ```
 
-## Any Position {.smaller}
+## Any Position! {.smaller}
 
 ::::: columns
 ::: {.column width="50%"}
@@ -1081,9 +1082,7 @@ ggplot(mpg, aes(class)) +
 #| fig-width: 4
 
 ggplot(uncertain_mpg, aes(class)) + 
-  geom_bar_sample(aes(fill = drv),
-                  times = 30,
-                  alpha=1/30,
+  geom_bar_sample(aes(fill = drv),times = 30, alpha=1/30,
                   position = "stack_identity")+
   theme(legend.position="none")+
   ggtitle("ggdibbler")
@@ -1094,7 +1093,7 @@ ggplot(uncertain_mpg, aes(class)) +
 :::::
 
 
-## Replicate all the documentation
+## All the documentation!
 
 ::::: columns
 ::: {.column width="50%"}
