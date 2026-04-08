@@ -53,6 +53,7 @@ theme_set( theme_gdocs() +
                    palette.colour.discrete = gdocs_pal(),
              )
 )
+gpal <- gdocs_pal()(5)
 ```
 
 
@@ -130,7 +131,8 @@ suburb_walk <- clean_walk |>
 
 ```
 
-# Chapter 1: A Motivating Example
+
+#Part 1: A Motivating Example
 
 ## Walktober {.smaller}
 
@@ -178,24 +180,6 @@ Before the competition started, I searched up the most accurate and cost effecti
 -   We are going to try and quantify the uncertainty that we can quantify
     -   "Anything worth doing is worth doing poorly" - G. K. Chesterton
 
-## Not an uncommon scenario
-
-Often our data is....
-
--   Unavailable,
-    -   e.g. anonymised data, measurement error, etc.
--   Non-deterministic
-    -   e.g. bounded data, estimated values, etc.
--   or Theoretical
-    -   e.g. estimates based on theory, latent variables, etc
-
-
-
-## How many statisticans does it take to visualise a random variable {.smaller}
-
--   Even though we usually work with random variables, are unable to visualise them effectively
--   Our choice of error distribution might change the conclusion of our analysis in unexpected ways
--   Often our solution is to just ignore the inherrent uncertainty in our data
 
 ## Ignoring the error {.smaller}
 -   Our department decides to do a visualisation challenge of the walktober data
@@ -223,25 +207,24 @@ p2 <- ggplot(clean_walk, aes(x=team, y = steps, fill = team_colour)) +
 p1 + p2
 ```
 
-## I dont want to ignore it
--   But I did all that reading about pedometers, so I would like to incorporate that uncertainty
--   The question is, **how**?  What does it mean to **see** uncertainty?
+## Not an uncommon scenario
 
-# Chapter 2: What are we trying to do?
+Often our data is....
 
-## Theory and code
-- There are really two elements of this problem
-1. Theoretically, what does it mean to visualise uncertainty
-  - Existing discussions are kind of vague on our goals
-2. Practically, how should the system be designed
-  - Existing implementations are specific to one type of plot and use bespoke syntax
+-   Unavailable,
+    -   e.g. anonymised data, measurement error, etc.
+-   Non-deterministic
+    -   e.g. bounded data, estimated values, etc.
+-   or Theoretical
+    -   e.g. estimates based on theory, latent variables, etc
 
-## Theory - Visual statistical properties
+
+## Visual statistical properties
 
 ::::: columns
 ::: {.column width="40%"}
 -   Statistical properties are what differentiate us from the animals
--   Sweet succulent statistical properties
+-   What does it mean to **see** this uncertainty?
 :::
 
 ::: {.column width="60%"}
@@ -249,8 +232,7 @@ p1 + p2
 :::
 :::::
 
-## Theory - Transparency
-- Often uncertainty 
+## Broad goals of the system
 -   Statistical validity should translates to perceptual ease
     -   The higher the variance on an estimate, the harder that estimate is to extract from the plot
 
@@ -258,161 +240,283 @@ p1 + p2
 
 
 
-## Theory - Visual Continuous Mapping Theorem
 
-![](images/visualcmt.jpeg){fig-align="center"}
+# Part 2: A Teeny Tiny Spatial Example
 
-## Theory - Visual Continuous Mapping Theorem
+## My specific problem
+![](images/alluncertaintyvis.jpeg){fig-align="center"}
 
-![](images/visualconvergence.jpeg){fig-align="center"}
+```{r maps}
+# get data
+load("data/my_map_data.rda")
 
-## Theory - Broad goals of the system
--   Statistical validity should translates to perceptual ease
-    -   The higher the variance on an estimate, the harder that estimate is to extract from the plot
+# seed for sampling
+set.seed(1997)
 
-![](images/signoise.jpeg){fig-align="center"}
+# data dimension for sampling
+n <- dim(my_map_data)[1]
 
-## Practical - Code
-- Continuous mapping theorem implies the function is the same
-- Therefore: `ggplot2` code = `ggdibbler` code
-- Only difference is the random variable input
+# Make palettes
+longpal <- rev(sequential_hcl(13, palette = "YlOrRd"))
+basecols <- longpal[3:10]
+breaks <- 21:29 
+breakslong <- 18:32 
+names(basecols) <- seq(8)
+names(longpal) <- -1:11
+var_seq <- seq(0,12, by=3)
 
-## Speaking of random variable inputs {.smaller}
+my_map_data <- my_map_data |>
+  mutate(temp = 29 - 2*abs(scale(cent_lat) - sin(2*(scale(cent_long)))[,1]), # trend
+         highvar = runif(n, min=8, max=var_seq[5]), # high variance
+         lowvar = runif(n, min=2, max=4), # low variance
+         count_id = row_number()) |>
+  pivot_longer(cols=highvar:lowvar, names_to = "variance_class", values_to = "variance") |>
+  # add bivariate classes to data
+  mutate(bitemp = cut(temp, breaks=breaks, labels=seq(8)),
+         bivar = cut(variance, breaks=var_seq, labels=seq(4)),
+         biclass = paste(bitemp, bivar, sep="-")) |>
+  mutate(highlight = ifelse(count_id <= 5, TRUE, FALSE)) |>
+  mutate(temp = as.numeric(temp))
 
-::::: columns
-::: {.column width="70%"}
-```{r}
-clean_walk|> 
+###################### CHOROPLETH MAP ###################### 
+choro1 <- my_map_data |>
+  filter(variance_class=="lowvar") |>
+  ggplot() +
+  geom_sf(aes(fill = temp, 
+              geometry = geometry), colour=NA) + 
+  scale_fill_gradientn(colours = basecols) +
+  #theme_void() +
+  labs(fill = "temperature") +
+  theme_map() +
+  theme(legend.position = "inside", 
+        legend.position.inside = c(0.1, -0.2),
+        legend.direction = "horizontal",
+        legend.background = element_rect(fill=NA),
+        plot.title = element_text(size = 14)) + 
+  ggtitle("Low Varince") 
+
+choro2 <- choro1 %+% filter(my_map_data, variance_class=="highvar") +
+  ggtitle("High Variance") 
+
+######################  Exceed Prob Map ######################  
+
+exeed_data <- my_map_data |> 
   as_tibble() |>
-  select(steps_dist, team, name) |>
-  head(8) 
+  mutate(xprob = 1- pnorm(27, mean=temp, sd=variance)) 
+             
+exceed1 <- exeed_data |>
+  filter(variance_class=="lowvar") |>
+  ggplot() +
+  geom_sf(aes(fill = xprob, 
+              geometry = geometry), colour=NA) + 
+  scale_fill_gradientn(colours = basecols, limits=c(0,1)) +
+  #theme_void() +
+  labs(fill = "P(X>27)") +
+  theme_map() +
+  theme(legend.position = "inside", 
+        legend.position.inside = c(0.1, -0.2),
+        legend.direction = "horizontal",
+        legend.background = element_rect(fill=NA),
+        plot.title = element_text(size = 14)) +   
+  ggtitle("Low Variance") 
+
+exceed2 <- exceed1 %+% filter(exeed_data, variance_class=="highvar") + 
+  ggtitle("High Variance") 
+
+####################### Bivariate maps ###################### 
+
+# Make bivariate palette
+# Function to devalue by a certain amount
+colsupress <- function(basecols, hue=1, sat=1, val=1) {
+    X <- diag(c(hue, sat, val)) %*% rgb2hsv(col2rgb(basecols))
+    hsv(pmin(X[1,], 1), pmin(X[2,], 1), pmin(X[3,], 1))
+}
+
+# recursively decrease value
+v_val = 0.5
+bivariatepal <- c(basecols,
+                  colsupress(basecols, sat=v_val),
+                  colsupress(colsupress(basecols, sat=v_val), sat=v_val),
+                  colsupress(colsupress(colsupress(basecols, sat=v_val), sat=v_val), sat=v_val))
+# establish levels of palette
+names(bivariatepal) <- paste(rep(1:8, 4), "-" , rep(1:4, each=8), sep="")
+
+# mapping
+bivar1 <- my_map_data |>
+  filter(variance_class=="lowvar") |>
+  ggplot() +
+  geom_sf(aes(fill = biclass, geometry = geometry), colour=NA) + 
+  scale_fill_manual(values = bivariatepal) +
+  theme_void() + 
+  theme(legend.position = "none") +
+  ggtitle("Low Variance") 
+  
+bivar2 <- bivar1 %+% filter(my_map_data, variance_class=="highvar") +
+  ggtitle("High Variance") 
+
+
+bivar_pal<- expand_grid(bitemp = seq(1,8), bivar = seq(1,4)) |>
+  mutate(biclass = paste(bitemp, bivar, sep="-"))
+
+bivar3 <- bivar_pal |>
+  ggplot(aes(x=bitemp, y=bivar, fill=biclass)) +
+  geom_tile() +
+  scale_fill_manual(values = bivariatepal) +
+  theme_classic() +
+  theme(aspect.ratio=0.2) + 
+  scale_x_continuous(breaks = c(1,2,3,4,5,6,7,8),
+                     expand=c(0,0)) +
+  scale_y_reverse(breaks = c(0,1,2,3,4),
+                  labels = c(0,3,6,9,12)) + 
+  labs(x = "temperature",
+       y = "SE") +
+  theme(aspect.ratio = 0.55, legend.position = "none",
+        axis.line = element_blank(),
+        axis.ticks = element_blank()) 
+
+#bivar1 <- bivar1 / bivar3
+#bivar2 <- bivar2 / bivar3
+# bivar1 <- bivar1 + bivar3 + plot_layout(ncol=1, heights = c(4, 1))
+# bivar2 <- bivar2 + bivar3 + plot_layout(ncol=1, heights = c(4, 1))
+
+bivar1 <-  bivar1 + inset_element(bivar3, left = -0.01, bottom = -0.5, 
+                          right = 0.4, top = 0.2)
+
+bivar2 <-  bivar2 + inset_element(bivar3, left = -0.01, bottom = -0.5, 
+                          right = 0.4, top = 0.2)
+
+####################### VSUP maps ###################### 
+# Function to combine colours for VSUP
+colourblend <- function(basecols, p_length, nblend) {
+    X <- rgb2hsv(col2rgb(unique(basecols)))
+    v1 <- X[,seq(1,dim(X)[2], 2)]
+    v2 <- X[,seq(2,dim(X)[2], 2)]
+    if("matrix" %in% class(v1)){
+      # hue issue wrap around pt 1
+      v3 <- (v1+v2)
+      v3["h",] <- ifelse(abs(v1["h",]-v2["h",])>0.5, v3["h",]+1, v3["h",])
+      v3 <- v3/2
+      # hue issue wrap around pt 2
+      v3["h",] <- ifelse(v3["h",]>=1 , v3["h",]-1 ,v3["h",])
+      hsv(rep(v3[1,], each=nblend), rep(v3[2,], each=nblend), rep(v3[3,], each=nblend))
+      } else {
+        v3 <- (v1+v2)
+        v3["h"] <- ifelse(abs(v1["h"]-v2["h"])>0.5, v3["h"]+1, v3["h"])
+        v3 <- v3/2
+        v3["h"] <- ifelse(v3["h"]>=1 , v3["h"]-1 ,v3["h"])
+        rep(hsv(h=v3[1], s=v3[2], v=v3[3]), p_length)
+        }
+}
+
+VSUPfunc <- function(basecols, p_length, nblend){
+  colourblend(colsupress(basecols, sat=0.5), p_length, nblend)
+}
+
+# VSUP
+p = length(basecols)
+VSUP <- c(basecols,
+          VSUPfunc(basecols, p, 2),
+          VSUPfunc(VSUPfunc(basecols, p, 2), p, 4),
+          VSUPfunc(VSUPfunc(VSUPfunc(basecols, p, 2), p, 4), p, 8))
+
+names(VSUP) <- paste(rep(1:8, 4), "-" , rep(1:4, each=8), sep="")
+
+# VSUP maps
+vsup1 <- my_map_data |>
+  filter(variance_class=="lowvar") |>
+  ggplot() +
+  geom_sf(aes(fill = biclass, geometry = geometry), colour=NA) + 
+  scale_fill_manual(values = VSUP) +
+  theme_void() + 
+  theme(legend.position = "none") +
+  ggtitle("Low Variance...?")
+
+fake_data <- my_map_data |>
+  filter(variance_class=="lowvar") |>
+  mutate(bivar = cut(variance, breaks=c(0,1,2,3,4), labels=seq(4)), 
+         biclass = paste(bitemp, bivar, sep="-"))
+
+vsup2 <- vsup1 %+% fake_data +
+  ggtitle("High Variance...?")
+#  annotate("text", x = 306000, y = -140000, label = "B", size = 5)
+# vsup1 <- vsup1 + 
+#   annotate("text", x = 306000, y = -140000, label = "A", size = 5) 
+
+fake_data <- my_map_data |>
+  filter(variance_class=="lowvar") |>
+  mutate(bivar = cut(variance, breaks=c(0,1,2,3,4), labels=seq(4)),
+         biclass = paste(bitemp, bivar, sep="-"))
+
+
+vsup3 <- bivar3 + scale_fill_manual(values = VSUP)
+
+vsup4 <- vsup3 + 
+  scale_y_reverse(breaks = c(0,1,2,3,4),
+                  labels = c(0,1,2,3,4))
+
+#vsup1 <- vsup1 / vsup3
+#vsup2 <- vsup2 / vsup4
+# vsup1 <- vsup1 + vsup3 + plot_layout(ncol=1, heights = c(4, 1))
+# vsup2 <- vsup2 + vsup4 + plot_layout(ncol=1, heights = c(4, 1))
+
+vsup1 <- vsup1 + inset_element(vsup3, left = -0.01, bottom = -0.5, 
+                          right = 0.4, top = 0.2)
+
+vsup2 <- vsup2 + inset_element(vsup4, left = -0.01, bottom = -0.5, 
+                          right = 0.4, top = 0.2)
+
+####################### Pixel maps ######################
+# low variance
+pixel1 <- my_map_data |>
+  filter(variance_class=="lowvar") |>
+  ggplot() +
+  geom_sf_sample(aes(fill = dist_normal(temp, variance), 
+              geometry = geometry), colour=NA, times=30) + 
+  #theme_void() + 
+  scale_fill_gradientn(colours = longpal) +
+  labs(fill = "temperature") +
+  theme_map() +
+  theme(legend.position = "inside", 
+        legend.position.inside = c(0.1, -0.2),
+        legend.direction = "horizontal",
+        legend.background = element_rect(fill=NA),
+        plot.title = element_text(size = 14)) +   
+  ggtitle("Low Variance") 
+
+# high variance
+pixel2 <- my_map_data |>
+  filter(variance_class=="highvar") |>
+  ggplot() +
+  geom_sf_sample(aes(fill = dist_normal(temp, variance), 
+              geometry = geometry), colour=NA, times=30) + 
+  scale_fill_gradientn(colours = longpal) +
+  #theme_void() +
+  labs(fill = "temperature") +
+  theme_map() +
+  theme(legend.position = "inside", 
+        legend.position.inside = c(0.1, -0.2),
+        legend.direction = "horizontal",
+        legend.background = element_rect(fill=NA),
+        plot.title = element_text(size = 14)) +   
+  ggtitle("High Variance") 
 ```
-:::
 
-::: {.column width="30%"}
--   Vectorised random variables with `distributional`
--   Our walktober example can be represented by truncated normally distributed random variables
--   This is not a talk on `distributional` (but you should look at the software, it is neat)
-
-:::
-:::::
-
-
-## Uncertain data sets
-Every data set used in the `ggplot2` documentation has a `distributional` version in `ggdibbler`
-
-- `diamonds` = `uncertain_diamonds`
-- `mpg` = `uncertain_mpg`
-- `mtcars` = `uncertain_mtcars`
-- `faithful` = `uncertain_faithful`
-- `economics`= `uncertain_economics`
-
-
-
-
-
-
-
-# Chapter 3: A Teeny Tiny Spatial Example
 
 ## Spot the difference  {.smaller}
 -   Maps of temperature in Iowa counties
--   I chose two error distributions, can you spot the difference?
 
-![](images/choropleth.jpeg){fig-align="center"}
+```{r}
+choro1 + choro2  
+```
 
-## Exceedance probability map
-
-![](images/exceed2.jpeg){fig-align="center"}
-
-- If you care about the uncertainty, visualise the uncertainty
-
-
-## A terrible vet
-
-![](images/dogvet.jpeg){fig-align="center"}
-
-## A terrible vet
-
-![](images/horsevet.jpeg){fig-align="center"}
-
-## Uncertainty as signal vs noise {.smaller}
-
--   Uncertainty can play two roles in an analysis
-    -   Sometimes it is used to hedge or dampen our conclusions on other statistics
-    -   Sometimes it is a statistic of inference itself
--   A visualisation is a statistic which means, just like other statistics, we use them to draw inference
-    -   If we want to draw inference on uncertainty: visualise uncertainty as signal
-    -   If it is supposed to hedge our inference from the plot: it is noise
--   An exceedence probability map is fine if we want to draw inference on our uncertainty, but not fine if we were trying to hedge the original plot
-
-## Solution: add an axis for uncertainty {.smaller}
-
-![](images/bivar2.jpeg){fig-align="center"}
-
--   2D palette is harder to read
--   Says: "We have a wave pattern, but it is uncertain"
-
-## I keep getting scammed
-
-![](images/scammed.jpeg)
-
-## Why doesn't this work?
-
--   Uncertainty is not just another variable…
-    -   It presents an interesting perceptual problem
--   Usually do not want variables to interfere with each other
-    -   In uncertainty visualisation, the opposite is true
+## Does it work?
+- Probably not (since it is the whole reason we are doing this)
+- How do test?
+- Made a fake colour blind test using Nick Tierney's `ishihara` package
 
 
-
-## Solution: blend the colours together! {.smaller}
-
-![](images/vsup2.jpeg){fig-align="center"}
-
--   Made signal harder to see... but maybe too hard?
--   Still have 2D Colour palette
--   Standard error at which to blend colours is made up
-
-
-## Free yourself from the two variable approach
-
--   Realistically, we are trying add information back in that we just shouldn't have droppped
--   We need a more holistic apporach that doesn't allow us to pick and choose when and how we include uncertainty
--   Uncertainty visualisation doesn't have units of data, it has units of "random variables" so we should directly input random variables
-
-
-## Solution: simulate a sample {.smaller}
-
-::::: columns
-::: {.column width="70%"}
-![](images/pixel2.jpeg){fig-align="center"}
-:::
-
-::: {.column width="30%"}
--   Made using Vizumap's pixelmap function
--   Gives the best overall understanding of our random variables
--   Not actually making any top level decisions, just letting the variance from the random variables carry through to the visual system
--   The signal seems harder to read
--   1D colour palette
-:::
-:::::
-
-## But does it work?
-- We did a study on to check if the visiblity of the signal aligns with standard hypothesis tests
-
-::: {#fig-plotexample layout-ncol=2}
-
-
+## Does it work?
 ![Choropleth](images/choro_5x5.png){fig-align="center"}
-
-
-![Pixel](images/pix_5x5.png){fig-align="center"}
-(Thank you Nick Tierney for the `ishihara` package)
-:::
-
-## Pixel maps and hypothesis tests
-- Shockingly well
 
 ```{r}
 # load simulated models
@@ -425,15 +529,19 @@ name_distance <- function(string) {
 }
 
 LINES <- c("T-test" = "longdash", "Moran's I" = "dotdash")
+
+map_type = "Choropleth"
+pcol = gpal[1]
+
 glmer_models |>
   filter(!D==0,
-         plot_type %in% c("Choropleth", "Pixel")) |>
+         plot_type %in% map_type) |>
   mutate(line_id = interaction(plot_type, id)) |>
   ggplot(aes(x=V,  group = line_id)) +
-  geom_line(aes(y = power_random, colour = plot_type), 
+  geom_line(aes(y = power_random), colour = pcol,
             linewidth=0.3, alpha=0.3) +
   geom_line(data = theoretical_models |>
-              filter(!D==0, plot_type %in% c("Choropleth", "Pixel")) |>
+              filter(!D==0, plot_type %in% map_type) |>
               mutate(line_id = interaction(test, plot_type, correct_number)),
             aes(y=power_random, linetype = test),
             linewidth=0.3, colour = "black") +
@@ -452,30 +560,284 @@ glmer_models |>
 
 ```
 
-# Chapter 4: A State of Mainia and `ggdibbler`
+## Solution: add an axis for uncertainty {.smaller}
+```{r}
+bivar1 + bivar2 
+```
 
-## ggdibbler and ggplot2
+-  "We have a wave pattern, but it is uncertain"
 
-- Every `geom` has a `geom_sample` counterpart...
+
+## Does it work?
+![Bivariate](images/bivar_5x5.png){fig-align="center"}
+
+```{r}
+map_type = "Bivariate"
+pcol = gpal[2]
+
+glmer_models |>
+  filter(!D==0,
+         plot_type %in% map_type) |>
+  mutate(line_id = interaction(plot_type, id)) |>
+  ggplot(aes(x=V,  group = line_id)) +
+  geom_line(aes(y = power_random), colour = pcol,
+            linewidth=0.3, alpha=0.3) +
+  geom_line(data = theoretical_models |>
+              filter(!D==0, plot_type %in% map_type) |>
+              mutate(line_id = interaction(test, plot_type, correct_number)),
+            aes(y=power_random, linetype = test),
+            linewidth=0.3, colour = "black") +
+  theme(legend.position="top", 
+        legend.direction ="horizontal",
+        text=element_text(size=10), 
+        strip.text.x=element_text(size=8),
+        strip.text.y=element_text(size=8),
+        legend.text = element_text(size=8)) +
+  guides(colour = "none") + 
+  facet_grid(rows = vars(plot_type), cols = vars(D),
+             labeller = labeller(D = name_distance)) +
+  labs(x = "Standard Deviation", y = "Power",
+       linetype = "Classical Test") +
+  scale_linetype_manual(values = LINES) 
+
+```
+
+## Why doesn't this work?
+
+-   Uncertainty is not just another variable…
+    -   It presents an interesting perceptual problem
+-   Usually do not want variables to interfere with each other
+    -   In uncertainty visualisation, the opposite is true
+
+
+
+## Solution: blend the colours together! {.smaller}
+
+```{r}
+vsup1 + vsup2  
+```
+
+## Does it work?
+![VSUP](images/vsup_5x5.png){fig-align="center"}
+
+```{r}
+map_type = "VSUP"
+pcol = gpal[3]
+
+glmer_models |>
+  filter(!D==0,
+         plot_type %in% map_type) |>
+  mutate(line_id = interaction(plot_type, id)) |>
+  ggplot(aes(x=V,  group = line_id)) +
+  geom_line(aes(y = power_random), colour = pcol,
+            linewidth=0.3, alpha=0.3) +
+  geom_line(data = theoretical_models |>
+              filter(!D==0, plot_type %in% map_type) |>
+              mutate(line_id = interaction(test, plot_type, correct_number)),
+            aes(y=power_random, linetype = test),
+            linewidth=0.3, colour = "black") +
+  theme(legend.position="top", 
+        legend.direction ="horizontal",
+        text=element_text(size=10), 
+        strip.text.x=element_text(size=8),
+        strip.text.y=element_text(size=8),
+        legend.text = element_text(size=8)) +
+  guides(colour = "none") + 
+  facet_grid(rows = vars(plot_type), cols = vars(D),
+             labeller = labeller(D = name_distance)) +
+  labs(x = "Standard Deviation", y = "Power",
+       linetype = "Classical Test") +
+  scale_linetype_manual(values = LINES) 
+
+```
+
+## Free yourself from the two variable approach
+
+-   Realistically, we are trying add information back in that we just shouldn't have droppped
+-   We need a more holistic apporach that doesn't allow us to pick and choose when and how we include uncertainty
+-   Uncertainty visualisation doesn't have units of data, it has units of "random variables" so we should directly input random variables
+
+
+## Solution: simulate a sample {.smaller}
+
+```{r}
+pixel1 + pixel2  
+```
+
+## Does it work?
+![Pixel Map](images/pix_5x5.png){fig-align="center"}
+
+```{r}
+map_type = "Pixel"
+pcol = gpal[4]
+
+glmer_models |>
+  filter(!D==0,
+         plot_type %in% map_type) |>
+  mutate(line_id = interaction(plot_type, id)) |>
+  ggplot(aes(x=V,  group = line_id)) +
+  geom_line(aes(y = power_random), colour = pcol,
+            linewidth=0.3, alpha=0.3) +
+  geom_line(data = theoretical_models |>
+              filter(!D==0, plot_type %in% map_type) |>
+              mutate(line_id = interaction(test, plot_type, correct_number)),
+            aes(y=power_random, linetype = test),
+            linewidth=0.3, colour = "black") +
+  theme(legend.position="top", 
+        legend.direction ="horizontal",
+        text=element_text(size=10), 
+        strip.text.x=element_text(size=8),
+        strip.text.y=element_text(size=8),
+        legend.text = element_text(size=8)) +
+  guides(colour = "none") + 
+  facet_grid(rows = vars(plot_type), cols = vars(D),
+             labeller = labeller(D = name_distance)) +
+  labs(x = "Standard Deviation", y = "Power",
+       linetype = "Classical Test") +
+  scale_linetype_manual(values = LINES) 
+
+```
+
+# Part 3: Making the ggplot2 extension
+
+## `Vizumap` code
+- Works? Yes. Code from my minds eye? No.
+```{r}
+#| eval: false
+#| echo: true
+
+# load the package
+library(Vizumap)
+library(sf)
+sf_use_s2(FALSE)
+
+# Step 1: Format data using bespoke data formatting function
+data <- read.uv(data = original_data, 
+                estimate = "mean", 
+                error = "standard_error")
+
+# Step 2: Pixelate the shapefile
+pixelation <- pixelate(geoData = geometry_data, 
+                       id = "ID", 
+                       # improved - set number of pixels
+                       pixelSize = 100)
+
+
+# Step 3: Build pixel map
+pixel_map <- build_pmap(data = data, 
+                         distribution = "normal", 
+                         pixelGeo = pixelation, 
+                         id = "ID", 
+                         # You can only use a set palette
+                         palette = "Oranges",
+                         border = geometry_data)
+
+# Step 4: Print pixel map
+view(pixel_map)
+```
+
+## Code from my minds eye
+```{r}
+#| echo: true
+#| eval: false
+
+ggplot(map_data) +
+  geom_sf(aes(geometry = geometry, fill = random_variable))
+
+```
+
+![](images/mindseye.jpeg){fig-align="center"}
+
+## `distributional`: distributions as data {.smaller}
 
 ::::: columns
-::: {.column width="50%"}
-
-```{=html}
-<iframe width="780" height="500" src="https://ggplot2.tidyverse.org/reference/index.html#geoms" title="ggplot2"></iframe>
+::: {.column width="70%"}
+```{r}
+clean_walk|> 
+  as_tibble() |>
+  select(steps_dist, team, name) |>
+  head(8) 
 ```
-
 :::
 
-::: {.column width="50%"}
-
-```{=html}
-<iframe width="780" height="500" src="https://harriet-mason.github.io/ggdibbler/reference/index.html#geoms" title="ggdibbler"></iframe>
-```
+::: {.column width="30%"}
+-   Vectorised random variables with `distributional`
+  -   Thank you Mitch, Matt, Alex,  and Rob
+-   Our walktober example as trunacted normal distributions
+-   This is not a talk on `distributional` 
 
 :::
 :::::
 
+## Simple problem
+![](images/simpleproblem.jpeg){fig-align="center"}
+
+## Good noodle, listen to ggplot2 book
+![](images/ggplot2book.jpeg){fig-align="center"}
+
+## The scale problem
+![](images/scalesuffering.jpg){fig-align="center"}
+
+## Asking for help 
+![](images/hadleyhelp2.jpeg){fig-align="center"}
+
+## Asking for help 
+![](images/hadleyhelp1.jpeg){fig-align="center"}
+
+## Asking for help 
+![](images/illshowyou.jpg){fig-align="center"}
+
+
+# Part 4: A State of Mainia and `ggdibbler`
+
+## Mania in the Github activity
+![](images/githubsnap.jpeg){fig-align="center"}
+
+## Spatial Plots  {.smaller}
+
+```{r spatialdata}
+#| echo: false
+# Make average summary of data
+toy_temp_mean <- toy_temp |> 
+  dplyr::group_by(county_name) |>
+  summarise(temp_mean = mean(recorded_temp))
+```
+
+::::: columns
+::: {.column width="50%"}
+
+```{r}
+#| echo: true
+#| fig-width: 4
+ggplot(toy_temp_mean) +
+  geom_sf(aes(geometry=county_geometry, fill=temp_mean), linewidth=0.7) +
+  scale_fill_distiller(palette = "OrRd") +
+  labs(fill="temp")+
+  ggtitle("ggplot2")+
+  theme(legend.position = "bottom")
+
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| echo: true
+#| fig-width: 4
+
+toy_temp_dist |> 
+  ggplot() + 
+  geom_sf_sample(aes(geometry = county_geometry, fill=temp_dist), linewidth=0, times=50) + 
+  geom_sf(aes(geometry = county_geometry), fill=NA, linewidth=0.7) +
+  scale_fill_distiller(palette = "OrRd") +
+  labs(fill="temp")+
+  ggtitle("ggdibbler")+
+  theme(legend.position = "bottom")
+```
+
+:::
+:::::
 
 
 ## Contour plots
@@ -591,88 +953,53 @@ ggplot(uncertain_faithfuld, aes(waiting, eruptions)) +
 :::
 :::::
 
+## Positioning breaks the system?
 
-## Bar charts  {.smaller}
+```{r dodgebarchart, fig.width=12, fig.height=4}
 
-::::: columns
-::: {.column width="50%"}
+set.seed(10)
+catdog <- tibble(
+    DogOwner = sample(c(TRUE, FALSE), 25, replace=TRUE),
+    CatOwner = sample(c(TRUE, FALSE), 25, replace=TRUE))
 
-```{r}
-#| echo: true
-#| fig-width: 4
-ggplot(mpg, aes(class)) + 
-  geom_bar_sample(aes(fill = drv), 
-                  position = "stack")+
-  theme(legend.position="none")+
-  ggtitle("stack")
+random_catdog <- catdog |>
+  mutate(
+    DogOwner = dist_bernoulli(0.1 + 0.8*DogOwner),
+  )
+    
 
-```
+p1 <- ggplot(catdog, aes(DogOwner)) + 
+  geom_bar_sample(aes(fill = CatOwner), 
+                  position = position_dodge(preserve="single"))+
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("ggplot: dodge")
 
-:::
 
-::: {.column width="50%"}
+p2 <- ggplot(random_catdog, aes(DogOwner)) + 
+  geom_bar_sample(aes(fill = CatOwner), times=30,
+                  position = "dodge_dodge") +
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("ggdibbler: dodge_dodge")
 
-```{r}
-#| echo: true
-#| fig-width: 4
+p3 <- ggplot(random_catdog, aes(DogOwner)) + 
+  geom_bar_sample(aes(fill = CatOwner),  times=30,
+                  position = position_dodge(preserve="single")) +
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("ggdibbler: dodge")
 
-ggplot(uncertain_mpg, aes(class)) + 
-  geom_bar_sample(aes(fill = drv),
-                  position = "stack_dodge")+
-  theme(legend.position="none")+
-  ggtitle("stack_dodge")
+p3 <- ggplot(random_catdog, aes(DogOwner)) + 
+  geom_bar_sample(aes(fill = CatOwner),  times=30,
+                  position = position_dodge(preserve="single")) +
+  theme_few() +
+  theme(legend.position="none", aspect.ratio = 1)+
+  ggtitle("ggdibbler: dodge")
 
-```
-
-:::
-:::::
-
-## Spatial Plots  {.smaller}
-
-```{r spatialdata}
-#| echo: false
-# Make average summary of data
-toy_temp_mean <- toy_temp |> 
-  dplyr::group_by(county_name) |>
-  summarise(temp_mean = mean(recorded_temp))
-```
-
-::::: columns
-::: {.column width="50%"}
-
-```{r}
-#| echo: true
-#| fig-width: 4
-ggplot(toy_temp_mean) +
-  geom_sf(aes(geometry=county_geometry, fill=temp_mean), linewidth=0.7) +
-  scale_fill_distiller(palette = "OrRd") +
-  labs(fill="temp")+
-  ggtitle("ggplot2")+
-  theme(legend.position = "bottom")
+p1 | p3 | p2
 
 ```
-
-:::
-
-::: {.column width="50%"}
-
-```{r}
-#| echo: true
-#| fig-width: 4
-
-toy_temp_dist |> 
-  ggplot() + 
-  geom_sf_sample(aes(geometry = county_geometry, fill=temp_dist), linewidth=0, times=50) + 
-  geom_sf(aes(geometry = county_geometry), fill=NA, linewidth=0.7) +
-  scale_fill_distiller(palette = "OrRd") +
-  labs(fill="temp")+
-  ggtitle("ggdibbler")+
-  theme(legend.position = "bottom")
-```
-
-:::
-:::::
-
 
 ## Nested positioning
 - Allows you to manage the overplotting from the sample
@@ -753,94 +1080,87 @@ p11 <- ggplot(uncertain_mpg, aes(class)) +
 
 ```
 
-## Required to maintain limiting properties
 
-```{r dodgebarchart, fig.width=12, fig.height=4}
+## Bar charts  {.smaller}
 
-set.seed(10)
-catdog <- tibble(
-    DogOwner = sample(c(TRUE, FALSE), 25, replace=TRUE),
-    CatOwner = sample(c(TRUE, FALSE), 25, replace=TRUE))
+::::: columns
+::: {.column width="50%"}
 
-random_catdog <- catdog |>
-  mutate(
-    DogOwner = dist_bernoulli(0.1 + 0.8*DogOwner),
-  )
-    
-
-p1 <- ggplot(catdog, aes(DogOwner)) + 
-  geom_bar_sample(aes(fill = CatOwner), 
-                  position = position_dodge(preserve="single"))+
-  theme_few() +
-  theme(legend.position="none", aspect.ratio = 1)+
-  ggtitle("ggplot: dodge")
-
-
-p2 <- ggplot(random_catdog, aes(DogOwner)) + 
-  geom_bar_sample(aes(fill = CatOwner), times=30,
-                  position = "dodge_dodge") +
-  theme_few() +
-  theme(legend.position="none", aspect.ratio = 1)+
-  ggtitle("ggdibbler: dodge_dodge")
-
-p3 <- ggplot(random_catdog, aes(DogOwner)) + 
-  geom_bar_sample(aes(fill = CatOwner),  times=30,
-                  position = position_dodge(preserve="single")) +
-  theme_few() +
-  theme(legend.position="none", aspect.ratio = 1)+
-  ggtitle("ggdibbler: dodge")
-
-p3 <- ggplot(random_catdog, aes(DogOwner)) + 
-  geom_bar_sample(aes(fill = CatOwner),  times=30,
-                  position = position_dodge(preserve="single")) +
-  theme_few() +
-  theme(legend.position="none", aspect.ratio = 1)+
-  ggtitle("ggdibbler: dodge")
-
-p1 | p3 | p2
+```{r}
+#| echo: true
+#| fig-width: 4
+ggplot(mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv), 
+                  position = "stack")+
+  theme(legend.position="none")+
+  ggtitle("stack")
 
 ```
 
-## Can I pick any position adjstment?
-- Also checked different position adjustments in experiment
-
-::: {#fig-plotexample layout-ncol=2}
-
-![Pixel](images/pix_5x5.png){fig-align="center"}
-
-![Transparency](images/trans_5x5.png){fig-align="center"}
-
-(Thank you Nick Tierney for the `ishihara` package)
 :::
 
-## All `ggdibbler` plots convey the same statistical information!
+::: {.column width="50%"}
+
 ```{r}
-glmer_models |>
-  filter(!D==0,
-         plot_type %in% c("Choropleth", "Pixel", "Transparency")) |>
-  mutate(line_id = interaction(plot_type, id)) |>
-  ggplot(aes(x=V,  group = line_id)) +
-  geom_line(aes(y = power_random, colour = plot_type), 
-            linewidth=0.3, alpha=0.3) +
-  geom_line(data = theoretical_models |>
-              filter(!D==0, plot_type %in% c("Choropleth", "Pixel", "Transparency")) |>
-              mutate(line_id = interaction(test, plot_type, correct_number)),
-            aes(y=power_random, linetype = test),
-            linewidth=0.3, colour = "black") +
-  theme(legend.position="top", 
-        legend.direction ="horizontal",
-        text=element_text(size=10), 
-        strip.text.x=element_text(size=8),
-        strip.text.y=element_text(size=8),
-        legend.text = element_text(size=8)) +
-  guides(colour = "none") + 
-  facet_grid(rows = vars(plot_type), cols = vars(D),
-             labeller = labeller(D = name_distance)) +
-  labs(x = "Standard Deviation", y = "Power",
-       linetype = "Classical Test") +
-  scale_linetype_manual(values = LINES) 
+#| echo: true
+#| fig-width: 4
+
+ggplot(uncertain_mpg, aes(class)) + 
+  geom_bar_sample(aes(fill = drv),
+                  position = "stack_dodge")+
+  theme(legend.position="none")+
+  ggtitle("stack_dodge")
 
 ```
+
+:::
+:::::
+
+## Also, replicate all the data sets
+Every data set used in the `ggplot2` documentation has a `distributional` version in `ggdibbler`
+
+- `diamonds` = `uncertain_diamonds`
+- `mpg` = `uncertain_mpg`
+- `mtcars` = `uncertain_mtcars`
+- `faithful` = `uncertain_faithful`
+- `economics`= `uncertain_economics`
+
+## Replicate all the documentation
+
+::::: columns
+::: {.column width="50%"}
+![](images/doc_ggplot.png){fig-align="center"}
+:::
+
+::: {.column width="50%"}
+
+![](images/doc_ggdibbler.png){fig-align="center"}
+
+:::
+:::::
+
+## ggdibbler and ggplot2
+
+- Every `geom` has a `geom_sample` counterpart...
+
+::::: columns
+::: {.column width="50%"}
+
+```{=html}
+<iframe width="780" height="500" src="https://ggplot2.tidyverse.org/reference/index.html#geoms" title="ggplot2"></iframe>
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{=html}
+<iframe width="780" height="500" src="https://harriet-mason.github.io/ggdibbler/reference/index.html#geoms" title="ggdibbler"></iframe>
+```
+
+:::
+:::::
+
 
 ## Combine all this together to get...
 
@@ -849,7 +1169,6 @@ glmer_models |>
 ## Universal application in `ggdibbler` {.smaller}
 
 ![](images/nameggdibbler.jpeg){fig-align="center"}
-
 
 
 

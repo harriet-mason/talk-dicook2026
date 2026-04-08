@@ -3,3 +3,56 @@ title: "waste_bin"
 format: html
 ---
 
+## How many statisticans does it take to visualise a random variable {.smaller}
+
+-   Even though we usually work with random variables, are unable to visualise them effectively
+-   Our choice of error distribution might change the conclusion of our analysis in unexpected ways
+-   Often our solution is to just ignore the inherrent uncertainty in our data
+
+
+
+
+## Theory - Visual Continuous Mapping Theorem
+
+![](images/visualcmt.jpeg){fig-align="center"}
+
+## Theory - Visual Continuous Mapping Theorem
+
+![](images/visualconvergence.jpeg){fig-align="center"}
+
+
+## Practical - Code
+- Continuous mapping theorem implies the function is the same
+- Therefore: `ggplot2` code = `ggdibbler` code
+- Only difference is the random variable input
+
+## Speaking of random variable inputs {.smaller}
+
+::::: columns
+::: {.column width="70%"}
+```{r}
+clean_walk|> 
+  as_tibble() |>
+  select(steps_dist, team, name) |>
+  head(8) 
+```
+:::
+
+::: {.column width="30%"}
+-   Vectorised random variables with `distributional`
+-   Our walktober example can be represented by truncated normally distributed random variables
+-   This is not a talk on `distributional` (but you should look at the software, it is neat)
+
+:::
+:::::
+
+
+## Uncertain data sets
+Every data set used in the `ggplot2` documentation has a `distributional` version in `ggdibbler`
+
+- `diamonds` = `uncertain_diamonds`
+- `mpg` = `uncertain_mpg`
+- `mtcars` = `uncertain_mtcars`
+- `faithful` = `uncertain_faithful`
+- `economics`= `uncertain_economics`
+
